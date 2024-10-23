@@ -1,0 +1,38 @@
+import os
+import numpy as np
+import arcpy
+import shutil
+from tqdm import tqdm
+
+
+target_spatial_ref = arcpy.SpatialReference(5186)  # EPSG 코드 32652 = WGS_1984_UTM_Zone_52N
+
+year = ['2018']
+
+for i in tqdm(year):
+    
+    folder_path = f'G:/2024_활동지도/mask/{i}_indices/'
+    output_folder = f'G:/2024_활동지도/mask/reproject/{i}_indices_reproject/'
+    
+    tif_files = [f for f in os.listdir(folder_path) if f.endswith('.v2.0_cropped.tif')]
+    
+    # 각 TIF 파일의 좌표 정보 확인 및 처리
+    for tif_file in tqdm(tif_files):
+        # 파일 경로 설정
+        tif_path = os.path.join(folder_path, tif_file)
+
+        # arcpy를 사용하여 레스터 속성 정보 얻기
+        desc = arcpy.Describe(tif_path)
+
+        # 현재 레스터의 공간 참조 정보
+        spatial_ref = desc.spatialReference
+        print(f"File: {tif_file}")
+        print(f"Current Spatial Reference: {spatial_ref.name}")
+
+        # 출력 파일 경로 설정
+        output_tif_path = os.path.join(output_folder, tif_file)
+
+        print(f"Reprojecting {tif_file} to Korea 2000 / Unified CS (EPSG:5186)...")
+        arcpy.ProjectRaster_management(tif_path, output_tif_path, target_spatial_ref)
+
+    print("Processing completed.")
