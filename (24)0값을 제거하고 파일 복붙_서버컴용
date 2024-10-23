@@ -1,0 +1,66 @@
+import rasterio
+import shutil
+import gc
+import time
+
+year = '2022'
+
+# 레스터 파일이 저장된 폴더와 이동할 목적 폴더 경로
+source_folder = f'D:/24_활동지도/reproject/{year}_reproject'
+destination_folder = f'D:/24_활동지도/zero_pixel_files/{year}'
+
+
+# 목적 폴더가 없으면 생성
+if not os.path.exists(destination_folder):
+    os.makedirs(destination_folder)
+
+# 소스 폴더에서 tif 파일 목록 가져오기
+tif_files = [f for f in os.listdir(source_folder) if f.endswith('.tif')]
+
+# 각 레스터 파일 처리
+for tif_file in tqdm(tif_files):
+    file_path = os.path.join(source_folder, tif_file)
+
+    try:
+        # 레스터 파일 열기
+        with rasterio.open(file_path) as src:
+            # 레스터 데이터를 NumPy 배열로 읽기
+            raster_array = src.read(1)
+
+            # 1.79e+308 값을 제외한 나머지 값 중 유효한 값 찾기
+            valid_values = raster_array[raster_array != 1.79e+308]  # 1.79e+308 값 제외
+
+            # 유효한 값이 없거나, 유효한 값이 모두 0인지 확인
+            if valid_values.size == 0 or np.all(valid_values == 0):
+                print(f"File with all zero or no valid values (excluding 1.79e+308): {tif_file}. Preparing to move...")
+
+                # 파일을 닫기 전에 이동하지 않고, 조건에 맞을 경우만 이동하도록 준비
+                # 조건을 만족한 경우 이동 플래그를 세팅
+                should_move = True
+            else:
+                print(f"File contains valid data: {tif_file}, skipping...")
+                should_move = False
+
+        # 파일 닫기
+        src.close()
+
+        # 파일 이동 여부를 조건에 맞게 처리
+        if should_move:
+            # 파일 핸들을 명시적으로 닫은 후 잠금 해제를 위해 대기
+            gc.collect()
+            time.sleep(1)  # 파일 잠금 문제를 해결하기 위한 대기 시간
+
+            # 조건을 만족한 경우 파일 이동
+            destination_path = os.path.join(destination_folder, tif_file)
+            shutil.move(file_path, destination_path)
+
+            # 파일 이동 후 확인
+            if not os.path.exists(file_path):
+                print(f"File successfully moved and removed from source: {tif_file}")
+            else:
+                print(f"Failed to remove the file after moving: {tif_file}")
+
+    except Exception as e:
+        print(f"Error processing file {tif_file}: {e}")
+
+print("Processing completed.")
